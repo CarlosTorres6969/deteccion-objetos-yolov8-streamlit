@@ -14,24 +14,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import torch
+from camera_input_live import camera_input_live
 from PIL import Image, UnidentifiedImageError
 from ultralytics import YOLO
 
-try:
-    import av
-    from streamlit_webrtc import webrtc_streamer
-    from webrtc_compat import instalar_guardia_reintento_aioice
-
-    instalar_guardia_reintento_aioice()
-    WEBRTC_DISPONIBLE = True
-except ImportError:
-    WEBRTC_DISPONIBLE = False
-
-
 MODEL_PATH = BASE_DIR / "yolov8n.pt"
-RTC_CONFIGURATION = {
-    "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-}
 
 st.set_page_config(
     page_title="Visión IA · YOLOv8",
@@ -206,29 +193,6 @@ def detectar_imagen(
     return anotada_rgb, tabla, promedio
 
 
-def procesar_fotograma_yolo(
-    frame: "av.VideoFrame",
-    modelo: YOLO,
-    confianza: float,
-    tamano: int,
-) -> "av.VideoFrame":
-    """Anota un fotograma WebRTC y conserva el flujo ante fallos aislados."""
-    imagen_bgr = frame.to_ndarray(format="bgr24")
-    try:
-        resultado = modelo.predict(
-            source=imagen_bgr,
-            conf=confianza,
-            imgsz=tamano,
-            max_det=50,
-            device="cpu",
-            verbose=False,
-        )[0]
-        imagen_bgr = resultado.plot(line_width=2, font_size=11)
-    except Exception:
-        pass
-    return av.VideoFrame.from_ndarray(imagen_bgr, format="bgr24")
-
-
 def mostrar_resultados(
     imagen: Image.Image,
     modelo: YOLO,
@@ -333,46 +297,64 @@ def renderizar_modo_vivo(
     confianza: float,
     tamano: int,
 ) -> None:
-    """Muestra detección continua usando la cámara del navegador."""
+    """Muestra detección continua sin depender de un relay WebRTC."""
     st.subheader("Detección en vivo")
     st.caption(
-        "Pulsa START, permite el acceso a la cámara y observa las detecciones "
-        "directamente sobre el video."
+        "Pulsa «Iniciar cámara», permite el acceso del navegador y observa "
+        "los resultados procesados aproximadamente una vez por segundo."
     )
 
-    if not WEBRTC_DISPONIBLE:
-        st.warning(
-            "El componente de video en vivo no está instalado en este entorno. "
-            "Puedes usar el modo «Foto o archivo»."
+    columna_camara, columna_resultado = st.columns(2, gap="large")
+    with columna_camara:
+        st.markdown("**Cámara del navegador**")
+        captura = camera_input_live(
+            debounce=1000,
+            height=400,
+            width=520,
+            key="camara-yolov8-en-vivo",
+            show_controls=True,
+            start_label="Iniciar cámara",
+            stop_label="Pausar cámara",
         )
-        return
 
-    def procesar_fotograma(frame: "av.VideoFrame") -> "av.VideoFrame":
-        return procesar_fotograma_yolo(
-            frame, modelo, confianza, tamano
-        )
-
-    webrtc_streamer(
-        key="detector-yolov8",
-        video_frame_callback=procesar_fotograma,
-        media_stream_constraints={
-            "video": {
-                "width": {"ideal": 960},
-                "height": {"ideal": 540},
-                "facingMode": "user",
-            },
-            "audio": False,
-        },
-        rtc_configuration=RTC_CONFIGURATION,
-        async_processing=True,
-    )
+    with columna_resultado:
+        st.markdown("**Detección YOLOv8**")
+        if captura is None:
+            st.info(
+                "El resultado aparecerá aquí cuando inicies la cámara."
+            )
+        else:
+            try:
+                imagen = Image.open(captura).convert("RGB")
+                anotada, tabla, promedio = detectar_imagen(
+                    imagen, modelo, confianza, tamano
+                )
+            except (UnidentifiedImageError, OSError):
+                st.warning("Esperando un fotograma válido de la cámara…")
+            else:
+                st.image(anotada, use_container_width=True)
+                metrica_1, metrica_2 = st.columns(2)
+                metrica_1.metric("Objetos", len(tabla))
+                metrica_2.metric(
+                    "Confianza",
+                    f"{promedio:.1f} %" if not tabla.empty else "—",
+                )
+                if tabla.empty:
+                    st.caption(
+                        "Sin detecciones. Mejora la iluminación o reduce "
+                        "la confianza mínima."
+                    )
+                else:
+                    objetos = ", ".join(
+                        tabla["Objeto"].drop_duplicates().tolist()
+                    )
+                    st.caption(f"Detectado: {objetos}")
 
     st.markdown(
         """
         <p class="tiny-note">
-        La primera conexión puede tardar unos segundos. Si la red bloquea
-        WebRTC, usa <b>Foto o archivo</b>, que accede a la cámara sin transmitir
-        video continuo.
+        La cámara se procesa mediante HTTPS y no necesita servidores TURN.
+        Puedes pausarla en cualquier momento para conservar el último resultado.
         </p>
         """,
         unsafe_allow_html=True,

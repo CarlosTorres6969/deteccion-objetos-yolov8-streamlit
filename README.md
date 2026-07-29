@@ -27,6 +27,6 @@ streamlit run streamlit_app.py
 
 El archivo `yolov8n.pt` debe permanecer en la raíz del repositorio.
 
-> La transmisión en vivo usa WebRTC. Algunas redes corporativas pueden
-> bloquearla; el modo de captura fotográfica permanece disponible como
-> alternativa.
+> La transmisión en vivo utiliza capturas periódicas mediante HTTPS, por lo
+> que no necesita configurar servidores STUN/TURN. El modo de captura
+> fotográfica permanece disponible como alternativa.
