@@ -316,39 +316,42 @@ def renderizar_modo_vivo(
             start_label="Iniciar cámara",
             stop_label="Pausar cámara",
         )
+        imagen_camara = None
+        if captura is not None:
+            try:
+                imagen_camara = Image.open(captura).convert("RGB")
+            except (UnidentifiedImageError, OSError):
+                st.warning("Esperando un fotograma válido de la cámara…")
+            else:
+                st.image(imagen_camara, use_container_width=True)
 
     with columna_resultado:
         st.markdown("**Detección YOLOv8**")
-        if captura is None:
+        if imagen_camara is None:
             st.info(
                 "El resultado aparecerá aquí cuando inicies la cámara."
             )
         else:
-            try:
-                imagen = Image.open(captura).convert("RGB")
-                anotada, tabla, promedio = detectar_imagen(
-                    imagen, modelo, confianza, tamano
+            anotada, tabla, promedio = detectar_imagen(
+                imagen_camara, modelo, confianza, tamano
+            )
+            st.image(anotada, use_container_width=True)
+            metrica_1, metrica_2 = st.columns(2)
+            metrica_1.metric("Objetos", len(tabla))
+            metrica_2.metric(
+                "Confianza",
+                f"{promedio:.1f} %" if not tabla.empty else "—",
+            )
+            if tabla.empty:
+                st.caption(
+                    "Sin detecciones. Mejora la iluminación o reduce "
+                    "la confianza mínima."
                 )
-            except (UnidentifiedImageError, OSError):
-                st.warning("Esperando un fotograma válido de la cámara…")
             else:
-                st.image(anotada, use_container_width=True)
-                metrica_1, metrica_2 = st.columns(2)
-                metrica_1.metric("Objetos", len(tabla))
-                metrica_2.metric(
-                    "Confianza",
-                    f"{promedio:.1f} %" if not tabla.empty else "—",
+                objetos = ", ".join(
+                    tabla["Objeto"].drop_duplicates().tolist()
                 )
-                if tabla.empty:
-                    st.caption(
-                        "Sin detecciones. Mejora la iluminación o reduce "
-                        "la confianza mínima."
-                    )
-                else:
-                    objetos = ", ".join(
-                        tabla["Objeto"].drop_duplicates().tolist()
-                    )
-                    st.caption(f"Detectado: {objetos}")
+                st.caption(f"Detectado: {objetos}")
 
     st.markdown(
         """
