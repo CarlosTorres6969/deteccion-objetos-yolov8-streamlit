@@ -1,0 +1,849 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{amsmath}
+
+\geometry{top=2.2cm,bottom=2.2cm,left=2.25cm,right=2.25cm}
+
+\definecolor{Primary}{HTML}{174A7E}
+\definecolor{Secondary}{HTML}{2A7F9E}
+\definecolor{Accent}{HTML}{E07A2D}
+\definecolor{LightBlue}{HTML}{EAF3F8}
+\definecolor{LightGray}{HTML}{F4F6F7}
+\definecolor{DarkGray}{HTML}{263238}
+\definecolor{CodeGreen}{HTML}{26734D}
+\definecolor{CodePurple}{HTML}{7A3E9D}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Primary,
+  urlcolor=Secondary,
+  citecolor=Primary,
+  pdftitle={Explicación del código de detección de objetos con YOLOv8},
+  pdfsubject={Guía técnica de un notebook de detección de objetos},
+  pdfauthor={Documento generado para el proyecto}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{Primary}{Detección de objetos con YOLOv8}}
+\fancyhead[R]{\small\textcolor{DarkGray}{Explicación del código}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.25}
+\setcounter{tocdepth}{2}
+\makeatletter
+\renewcommand\l@section{\@dottedtocline{1}{0em}{2.8em}}
+\renewcommand\l@subsection{\@dottedtocline{2}{2.8em}{3.5em}}
+\makeatother
+
+\lstdefinestyle{pythonstyle}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{Primary}\bfseries,
+  commentstyle=\color{CodeGreen},
+  stringstyle=\color{CodePurple},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  frame=single,
+  rulecolor=\color{LightBlue},
+  backgroundcolor=\color{LightGray},
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=4,
+  captionpos=b,
+  literate=
+    {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+    {ñ}{{\~n}}1 {Ñ}{{\~N}}1 {ü}{{\"u}}1 {Ü}{{\"U}}1
+    {¿}{{?`}}1 {¡}{{!`}}1 {º}{{\textordmasculine}}1
+}
+
+\lstset{style=pythonstyle}
+
+\newcommand{\archivo}[1]{\nolinkurl{#1}}
+\newcommand{\concepto}[1]{\textcolor{Primary}{\textbf{#1}}}
+\newcommand{\nota}[1]{%
+  \begin{center}
+  \fcolorbox{Secondary}{LightBlue}{%
+    \parbox{0.92\textwidth}{\textbf{\textcolor{Primary}{Nota.}} #1}}
+  \end{center}
+}
+\newcommand{\advertencia}[1]{%
+  \begin{center}
+  \fcolorbox{Accent}{LightGray}{%
+    \parbox{0.92\textwidth}{\textbf{\textcolor{Accent}{Atención.}} #1}}
+  \end{center}
+}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+
+\begin{titlepage}
+  \pagecolor{Primary}
+  \color{white}
+  \vspace*{2.1cm}
+
+  {\Huge\bfseries Explicación del código\par}
+  \vspace{0.45cm}
+  {\LARGE Detección de objetos en tiempo real con YOLOv8\par}
+
+  \vspace{1.2cm}
+  {\large Guía técnica y conceptual del notebook\par}
+  \vspace{0.25cm}
+  {\large\ttfamily NombreApellido\_DeteccionObjetos.ipynb\par}
+
+  \vfill
+
+  \fcolorbox{white}{Primary}{%
+    \parbox{0.83\textwidth}{%
+      \color{white}
+      \textbf{Tecnologías principales}\\[4pt]
+      Python \(\cdot\) Ultralytics YOLOv8 Nano \(\cdot\)
+      OpenCV \(\cdot\) PyTorch \(\cdot\) Pandas \(\cdot\) Jupyter
+    }}
+
+  \vfill
+  {\large 28 de julio de 2026\par}
+  \vspace{0.6cm}
+\end{titlepage}
+\nopagecolor
+\color{DarkGray}
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+
+\tableofcontents
+\newpage
+\pagenumbering{arabic}
+
+\section{Propósito del programa}
+
+El notebook implementa un sistema local de \concepto{visión artificial} que toma
+video de la cámara de la computadora, analiza cada fotograma con el modelo
+\concepto{YOLOv8 Nano} y muestra los objetos encontrados. Para cada detección
+presenta tres datos:
+
+\begin{itemize}
+  \item la clase u objeto reconocido, por ejemplo \texttt{person},
+  \texttt{bottle} o \texttt{cell phone};
+  \item la confianza estimada por el modelo;
+  \item un recuadro delimitador que indica la posición del objeto en la imagen.
+\end{itemize}
+
+El programa también permite capturar una evidencia con la tecla \textbf{C}.
+La captura se conserva en memoria, se muestra dentro del notebook y se acompaña
+de una tabla con las detecciones. Las teclas \textbf{Q} y \textbf{Esc} cierran
+la prueba sin guardar evidencia.
+
+\subsection{Archivos del proyecto}
+
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.38\textwidth} X}
+\toprule
+\textbf{Archivo o carpeta} & \textbf{Función} \\
+\midrule
+\archivo{NombreApellido_DeteccionObjetos.ipynb} &
+Notebook que contiene las explicaciones, instalación, funciones, pruebas y
+verificación final. \\
+\archivo{yolov8n.pt} &
+Pesos preentrenados de YOLOv8 Nano. Contienen los parámetros que el modelo
+aprendió antes de usarse en este proyecto. \\
+\archivo{.yolo_config} &
+Carpeta local destinada a la configuración de Ultralytics, creada para evitar
+problemas de permisos en carpetas globales. \\
+\bottomrule
+\end{tabularx}
+
+\section{Tecnologías y responsabilidades}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.23\textwidth}
+                  >{\raggedright\arraybackslash}p{0.69\textwidth}}
+\toprule
+\textbf{Componente} & \textbf{Responsabilidad en el código} \\
+\midrule
+\endhead
+Python & Coordina el flujo completo y conecta las bibliotecas. \\
+Jupyter/IPython & Ejecuta el programa por celdas y muestra imágenes, tablas y
+texto enriquecido en la salida. \\
+Ultralytics YOLO & Carga el modelo y ejecuta la inferencia sobre cada
+fotograma. \\
+PyTorch & Proporciona el motor numérico usado por YOLO y permite comprobar si
+hay una GPU CUDA disponible. \\
+OpenCV (\texttt{cv2}) & Abre la cámara, obtiene fotogramas, dibuja texto,
+muestra la ventana y lee las teclas. \\
+NumPy & Representa las imágenes como arreglos numéricos; se importa como
+\texttt{np}, aunque el notebook no lo usa directamente. \\
+Pandas & Convierte las detecciones en una tabla legible. \\
+Pillow (\texttt{PIL}) & Convierte el arreglo RGB en una imagen que Jupyter
+puede mostrar. \\
+\bottomrule
+\end{longtable}
+
+\nota{YOLO significa \emph{You Only Look Once}. Es un detector de una sola
+etapa: procesa la imagen y produce clases, confianzas y posiciones en una misma
+inferencia. La variante Nano se eligió por ser ligera y adecuada para una
+demostración en tiempo real.}
+
+\section{Flujo general}
+
+\begin{center}
+\setlength{\fboxsep}{7pt}
+\fcolorbox{Primary}{LightBlue}{\textbf{Cámara}}
+\(\longrightarrow\)
+\fcolorbox{Primary}{LightBlue}{\textbf{Fotograma BGR}}
+\(\longrightarrow\)
+\fcolorbox{Primary}{LightBlue}{\textbf{YOLOv8}}
+\(\longrightarrow\)
+\fcolorbox{Primary}{LightBlue}{\textbf{Resultado}}
+\end{center}
+\begin{center}
+\(\downarrow\)
+\end{center}
+\begin{center}
+\fcolorbox{Secondary}{LightGray}{\textbf{Ventana anotada}}
+\(\longrightarrow\)
+\fcolorbox{Secondary}{LightGray}{\textbf{Tecla C}}
+\(\longrightarrow\)
+\fcolorbox{Secondary}{LightGray}{\textbf{Imagen + tabla en Jupyter}}
+\end{center}
+
+El ciclo se repite mientras la ventana está abierta. En cada vuelta se lee una
+imagen, se ejecuta el modelo, se dibujan los resultados y se consulta el
+teclado. Al capturar o salir, el bucle termina y los recursos de la cámara se
+liberan.
+
+\section{Instalación de las bibliotecas}
+
+La primera celda de código utiliza el comando especial \texttt{\%pip}.
+En Jupyter, este comando instala paquetes en el entorno asociado con el kernel
+actual.
+
+\begin{lstlisting}
+%pip install -q --upgrade --no-deps \
+    "torch==2.11.0+cpu" "torchvision==0.26.0+cpu" \
+    --index-url https://download.pytorch.org/whl/cpu
+
+%pip uninstall -y opencv-python-headless
+%pip install -q --upgrade --force-reinstall --no-deps \
+    "opencv-python>=4.8,<5"
+%pip install -q "ultralytics>=8.3,<9" pandas pillow
+\end{lstlisting}
+
+\subsection{Qué hace cada instrucción}
+
+\begin{itemize}
+  \item Instala versiones de \texttt{torch} y \texttt{torchvision} preparadas
+  para CPU. La opción \texttt{--no-deps} evita que \texttt{pip} modifique
+  dependencias adicionales durante ese paso.
+  \item Desinstala \texttt{opencv-python-headless}. Esa variante está pensada
+  para servidores sin interfaz gráfica y no ofrece la ventana requerida por
+  \texttt{cv2.imshow}.
+  \item Reinstala la variante normal de OpenCV, que sí puede abrir ventanas.
+  \item Instala Ultralytics, Pandas y Pillow. Los intervalos de versiones
+  limitan cambios incompatibles.
+\end{itemize}
+
+\advertencia{Después de modificar PyTorch u OpenCV conviene reiniciar el
+kernel. Un proceso de Python ya iniciado puede conservar en memoria la versión
+anterior de una biblioteca.}
+
+\section{Configuración, importaciones y carga del modelo}
+
+\subsection{Configuración local de Ultralytics}
+
+\begin{lstlisting}
+carpeta_configuracion = Path.cwd() / ".yolo_config"
+carpeta_configuracion.mkdir(exist_ok=True)
+os.environ.setdefault("YOLO_CONFIG_DIR", str(carpeta_configuracion))
+\end{lstlisting}
+
+\begin{enumerate}
+  \item \texttt{Path.cwd()} obtiene la carpeta desde la que se ejecuta el
+  notebook.
+  \item El operador \texttt{/} de \texttt{Path} construye la ruta
+  \archivo{.yolo_config}.
+  \item \texttt{mkdir(exist\_ok=True)} crea la carpeta si no existe y no falla
+  si ya estaba creada.
+  \item \texttt{setdefault} define \texttt{YOLO\_CONFIG\_DIR} solamente si no
+  existía una configuración previa.
+\end{enumerate}
+
+Esta preparación se realiza \textbf{antes} de importar
+\texttt{ultralytics}, de modo que la biblioteca conozca la ubicación correcta
+desde el inicio.
+
+\subsection{Carga de pesos}
+
+\begin{lstlisting}
+modelo = YOLO("yolov8n.pt")
+\end{lstlisting}
+
+La variable \texttt{modelo} queda disponible globalmente para las funciones.
+Como el archivo \archivo{yolov8n.pt} ya está dentro del proyecto, la carga
+puede realizarse localmente. Si no existiera, Ultralytics intentaría obtenerlo
+automáticamente.
+
+Los pesos fueron preentrenados con las categorías de COCO. Por eso
+\texttt{modelo.names} relaciona cada identificador numérico con un nombre de
+clase y \texttt{len(modelo.names)} informa cuántas clases puede reconocer el
+modelo.
+
+\subsection{Selección del dispositivo}
+
+\begin{lstlisting}
+dispositivo = 0 if torch.cuda.is_available() else "cpu"
+\end{lstlisting}
+
+\texttt{torch.cuda.is\_available()} pregunta si PyTorch puede usar CUDA:
+
+\begin{itemize}
+  \item si responde verdadero, se usa \texttt{0}, es decir, la primera GPU;
+  \item si responde falso, se usa el procesador mediante \texttt{"cpu"}.
+\end{itemize}
+
+Con las versiones CPU instaladas explícitamente en la primera celda, lo normal
+es que el resultado sea \texttt{"cpu"}. La selección automática permite que
+el resto del código permanezca igual en ambos casos.
+
+\section{Función \texttt{abrir\_camara}}
+
+\begin{lstlisting}
+def abrir_camara(indice=0):
+    if os.name == "nt":
+        camara = cv2.VideoCapture(indice, cv2.CAP_DSHOW)
+        if not camara.isOpened():
+            camara.release()
+            camara = cv2.VideoCapture(indice)
+    else:
+        camara = cv2.VideoCapture(indice)
+
+    camara.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    camara.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    return camara
+\end{lstlisting}
+
+El parámetro \texttt{indice} identifica la cámara. El valor 0 suele
+representar la cámara principal; una segunda cámara normalmente se prueba con
+1.
+
+En Windows se intenta primero el backend \texttt{CAP\_DSHOW}
+(DirectShow). Si no abre, el objeto se libera y se repite el intento con el
+backend predeterminado. En otros sistemas se utiliza directamente el método
+normal de OpenCV.
+
+Las llamadas a \texttt{camara.set} solicitan una resolución de \(1280\times
+720\). Son una petición, no una garantía: el dispositivo puede utilizar la
+resolución compatible más cercana. Finalmente, la función devuelve el objeto
+\texttt{VideoCapture}; la comprobación definitiva se hace en la función de
+detección.
+
+\section{Función \texttt{construir\_tabla}}
+
+\begin{lstlisting}
+def construir_tabla(resultado):
+    filas = []
+    cajas = resultado.boxes
+
+    if cajas is not None:
+        for numero, (clase, confianza, coordenadas) in enumerate(
+            zip(cajas.cls.tolist(),
+                cajas.conf.tolist(),
+                cajas.xyxy.tolist()),
+            start=1,
+        ):
+            x1, y1, x2, y2 = [round(valor)
+                              for valor in coordenadas]
+            filas.append({
+                "N.º": numero,
+                "Objeto": modelo.names[int(clase)],
+                "Confianza": f"{confianza * 100:.1f} %",
+                "Recuadro (x1, y1, x2, y2)":
+                    f"({x1}, {y1}, {x2}, {y2})",
+            })
+
+    return pd.DataFrame(filas)
+\end{lstlisting}
+
+El objeto \texttt{resultado} contiene las predicciones de un fotograma.
+\texttt{resultado.boxes} reúne todas las cajas y expone:
+
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.19\textwidth} X}
+\toprule
+\textrm{\textbf{Atributo}} & \textbf{Contenido} \\
+\midrule
+cls & Identificador numérico de la clase de cada detección. \\
+conf & Confianza entre 0 y 1 asociada con cada caja. \\
+xyxy & Coordenadas \((x_1,y_1,x_2,y_2)\) en píxeles. \\
+\bottomrule
+\end{tabularx}
+
+\texttt{tolist()} mueve los datos a listas normales de Python, lo que facilita
+su recorrido. \texttt{zip} alinea clase, confianza y coordenadas pertenecientes
+a una misma detección. \texttt{enumerate(..., start=1)} agrega una numeración
+amigable para la tabla.
+
+La confianza se multiplica por 100 y se presenta con un decimal. La clase
+numérica se convierte en nombre mediante \texttt{modelo.names}. Si no hay
+objetos, \texttt{filas} permanece vacía y Pandas devuelve un
+\texttt{DataFrame} sin registros.
+
+\subsection{Sistema de coordenadas}
+
+\begin{center}
+\setlength{\fboxsep}{9pt}
+\fcolorbox{Primary}{LightGray}{%
+\parbox{0.72\textwidth}{
+\texttt{(0, 0)} se encuentra en la esquina superior izquierda.\\
+\(x\) aumenta hacia la derecha y \(y\) aumenta hacia abajo.\\[4pt]
+La caja va desde \((x_1,y_1)\), esquina superior izquierda, hasta
+\((x_2,y_2)\), esquina inferior derecha.
+}}
+\end{center}
+
+\section{Función principal: \texttt{detectar\_en\_tiempo\_real}}
+
+Esta función coordina la captura, la inferencia, la interfaz y la evidencia.
+Recibe tres parámetros:
+
+\begin{longtable}{>{\ttfamily\raggedright\arraybackslash}p{0.27\textwidth}
+                  >{\raggedright\arraybackslash}p{0.21\textwidth}
+                  >{\raggedright\arraybackslash}p{0.44\textwidth}}
+\toprule
+\textrm{\textbf{Parámetro}} & \textbf{Predeterminado} & \textbf{Uso} \\
+\midrule
+\endhead
+nombre\_prueba & obligatorio & Texto que identifica la evidencia. \\
+confianza\_minima & 0.30 & Descarta predicciones por debajo del umbral. \\
+indice\_camara & 0 & Selecciona el dispositivo de video. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Apertura y validación}
+
+\begin{lstlisting}
+camara = abrir_camara(indice_camara)
+if not camara.isOpened():
+    raise RuntimeError(
+        "No fue posible abrir la cámara..."
+    )
+\end{lstlisting}
+
+La función reutiliza \texttt{abrir\_camara}. Si la cámara no quedó disponible,
+lanza una excepción con recomendaciones concretas. Así evita entrar en un
+bucle que nunca podría recibir imágenes.
+
+\subsection{Lectura continua}
+
+\begin{lstlisting}
+while True:
+    lectura_correcta, fotograma = camara.read()
+    if not lectura_correcta:
+        raise RuntimeError(
+            "La cámara se abrió, pero no pudo entregar imágenes."
+        )
+\end{lstlisting}
+
+\texttt{camara.read()} devuelve:
+
+\begin{itemize}
+  \item un booleano que indica si la lectura fue correcta;
+  \item el fotograma, representado como un arreglo NumPy.
+\end{itemize}
+
+OpenCV almacena normalmente los canales en orden BGR
+(azul, verde y rojo), no en RGB. Ese detalle será importante cuando la imagen
+se envíe a Jupyter.
+
+\subsection{Inferencia con YOLO}
+
+\begin{lstlisting}
+resultado = modelo.predict(
+    source=fotograma,
+    conf=confianza_minima,
+    imgsz=640,
+    max_det=100,
+    device=dispositivo,
+    verbose=False,
+)[0]
+\end{lstlisting}
+
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.24\textwidth} X}
+\toprule
+\textrm{\textbf{Argumento}} & \textbf{Significado} \\
+\midrule
+source & Imagen que se analizará. \\
+conf & Umbral mínimo de confianza. \\
+imgsz=640 & Tamaño de entrada utilizado para la inferencia; YOLO adapta la
+imagen conservando la geometría necesaria. \\
+max\_det=100 & Máximo de detecciones permitidas en un fotograma. \\
+device & CPU o GPU seleccionada anteriormente. \\
+verbose=False & Evita imprimir un registro por cada fotograma. \\
+\bottomrule
+\end{tabularx}
+
+\texttt{predict} devuelve una colección porque puede aceptar varias imágenes.
+El índice \texttt{[0]} extrae el resultado correspondiente al único fotograma
+enviado.
+
+\subsection{Dibujo e interfaz}
+
+\begin{lstlisting}
+fotograma_anotado = resultado.plot(
+    line_width=2,
+    font_size=13,
+)
+
+cv2.rectangle(
+    fotograma_anotado,
+    (0, 0),
+    (fotograma_anotado.shape[1], 42),
+    (25, 25, 25),
+    -1,
+)
+cv2.putText(
+    fotograma_anotado,
+    "C = capturar evidencia    Q o Esc = salir",
+    (12, 29),
+    cv2.FONT_HERSHEY_SIMPLEX,
+    0.72,
+    (255, 255, 255),
+    2,
+    cv2.LINE_AA,
+)
+\end{lstlisting}
+
+\texttt{resultado.plot()} crea una copia visual con cajas, etiquetas y
+confianzas. Después, \texttt{cv2.rectangle} dibuja una franja oscura en la
+parte superior. El grosor \texttt{-1} indica que el rectángulo se rellena.
+\texttt{cv2.putText} coloca instrucciones blancas y
+\texttt{cv2.LINE\_AA} suaviza los bordes de las letras.
+
+El ancho de la franja se obtiene con
+\texttt{fotograma\_anotado.shape[1]}, por lo que se adapta al tamaño real del
+video.
+
+\subsection{Lectura del teclado}
+
+\begin{lstlisting}
+cv2.imshow(ventana, fotograma_anotado)
+tecla = cv2.waitKey(1) & 0xFF
+
+if tecla in (ord("c"), ord("C")):
+    evidencia = {
+        "nombre": nombre_prueba,
+        "imagen_bgr": fotograma_anotado.copy(),
+        "resultado": resultado,
+    }
+    break
+
+if tecla in (ord("q"), ord("Q"), 27):
+    break
+\end{lstlisting}
+
+\texttt{imshow} actualiza la ventana. \texttt{waitKey(1)} concede a OpenCV un
+instante para procesar eventos y obtiene la tecla. La operación
+\texttt{\& 0xFF} normaliza el código a sus ocho bits inferiores.
+
+\texttt{ord} convierte una letra en su código numérico y el número 27
+representa \textbf{Esc}. Al capturar se usa
+\texttt{fotograma\_anotado.copy()}; la copia impide que un cambio posterior
+del arreglo altere la evidencia guardada.
+
+\subsection{Liberación segura de recursos}
+
+\begin{lstlisting}
+finally:
+    camara.release()
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)
+\end{lstlisting}
+
+El bloque \texttt{finally} se ejecuta tanto al terminar normalmente como al
+producirse un error. \texttt{release} devuelve la cámara al sistema y
+\texttt{destroyAllWindows} cierra las ventanas de OpenCV. La última llamada a
+\texttt{waitKey} ayuda a procesar el evento de cierre en algunos entornos.
+
+Este diseño evita que la cámara quede ocupada y bloquee una prueba posterior.
+
+\subsection{Presentación en Jupyter}
+
+\begin{lstlisting}
+imagen_rgb = cv2.cvtColor(
+    evidencia["imagen_bgr"],
+    cv2.COLOR_BGR2RGB,
+)
+tabla = construir_tabla(evidencia["resultado"])
+
+display(Markdown(f"### Evidencia: {nombre_prueba}"))
+display(Image.fromarray(imagen_rgb))
+\end{lstlisting}
+
+OpenCV usa BGR, mientras que Pillow y Jupyter esperan RGB.
+\texttt{cvtColor} intercambia correctamente los canales para evitar que rojo
+y azul aparezcan invertidos.
+
+Luego se crea la tabla. Si está vacía, se proponen ajustes de iluminación o
+confianza. Si tiene registros, se muestra sin el índice automático de Pandas y
+se informa la cantidad de objetos.
+
+La función finalmente agrega la tabla al diccionario y lo devuelve:
+
+\begin{lstlisting}
+evidencia["tabla"] = tabla
+return evidencia
+\end{lstlisting}
+
+La estructura resultante contiene:
+
+\begin{itemize}
+  \item \texttt{nombre}: descripción de la prueba;
+  \item \texttt{imagen\_bgr}: fotograma anotado;
+  \item \texttt{resultado}: objeto original producido por Ultralytics;
+  \item \texttt{tabla}: resumen tabular de las cajas.
+\end{itemize}
+
+\section{Las tres pruebas}
+
+Las tres llamadas reutilizan la misma función y solo cambian el nombre de la
+prueba y, en un caso, el umbral.
+
+\begin{lstlisting}
+evidencia_prueba_1 = detectar_en_tiempo_real(
+    "Prueba 1 - Persona frente a la cámara",
+    confianza_minima=0.30,
+)
+
+evidencia_prueba_2 = detectar_en_tiempo_real(
+    "Prueba 2 - Objeto individual",
+    confianza_minima=0.30,
+)
+
+evidencia_prueba_3 = detectar_en_tiempo_real(
+    "Prueba 3 - Dos o más objetos simultáneos",
+    confianza_minima=0.25,
+)
+\end{lstlisting}
+
+\begin{tabularx}{\textwidth}{p{0.17\textwidth} p{0.20\textwidth} X}
+\toprule
+\textbf{Prueba} & \textbf{Umbral} & \textbf{Objetivo} \\
+\midrule
+1 & 30\,\% & Capturar una persona frente a la cámara. COCO reconoce
+\texttt{person}, no el rostro como clase separada. \\
+2 & 30\,\% & Detectar un objeto individual perteneciente a las clases
+conocidas por el modelo. \\
+3 & 25\,\% & Capturar al menos dos objetos. El umbral menor aumenta la
+posibilidad de detectar objetos más difíciles. \\
+\bottomrule
+\end{tabularx}
+
+Un umbral bajo aumenta la sensibilidad, pero también puede introducir falsos
+positivos. Un umbral alto exige mayor seguridad al modelo, aunque puede omitir
+objetos reales.
+
+\section{Verificación final}
+
+\begin{lstlisting}
+nombres_variables = [
+    "evidencia_prueba_1",
+    "evidencia_prueba_2",
+    "evidencia_prueba_3",
+]
+
+evidencias = [globals().get(nombre)
+              for nombre in nombres_variables]
+\end{lstlisting}
+
+\texttt{globals()} devuelve el espacio de nombres global del notebook.
+\texttt{get(nombre)} recupera cada variable sin provocar un
+\texttt{NameError}; si una prueba no se ejecutó, devuelve \texttt{None}.
+
+\begin{lstlisting}
+if all(evidencia is not None for evidencia in evidencias):
+    cantidades = [len(evidencia["tabla"])
+                  for evidencia in evidencias]
+
+    if (cantidades[0] >= 1
+            and cantidades[1] >= 1
+            and cantidades[2] >= 2):
+        print("Se cumplen las detecciones mínimas.")
+\end{lstlisting}
+
+\texttt{all} confirma que las tres capturas existen. Después,
+\texttt{len(evidencia["tabla"])} cuenta las filas detectadas. Se requieren una,
+una y dos detecciones respectivamente.
+
+\advertencia{La verificación cuenta objetos, pero no valida sus clases. Por
+ejemplo, la primera prueba podría aprobar con una botella aunque no aparezca
+\texttt{person}. Una validación más estricta debería comprobar también el
+contenido de la columna \texttt{Objeto}.}
+
+\section{Parámetros que modifican el comportamiento}
+
+\begin{longtable}{>{\ttfamily\raggedright\arraybackslash}p{0.24\textwidth}
+                  >{\raggedright\arraybackslash}p{0.25\textwidth}
+                  >{\raggedright\arraybackslash}p{0.43\textwidth}}
+\toprule
+\textrm{\textbf{Parámetro}} & \textbf{Si disminuye} & \textbf{Si aumenta} \\
+\midrule
+\endhead
+confianza\_minima &
+Detecta más candidatos, incluidos posibles errores. &
+Muestra menos resultados, pero generalmente más seguros. \\
+imgsz &
+Puede aumentar la velocidad y perder objetos pequeños. &
+Puede mejorar detalle, con mayor costo de tiempo y memoria. \\
+max\_det &
+Limita escenas muy cargadas. &
+Permite más cajas y requiere más procesamiento posterior. \\
+indice\_camara &
+No representa calidad; selecciona otro dispositivo. &
+Prueba cámaras enumeradas con otros índices. \\
+CAP\_PROP\_FRAME\_WIDTH y HEIGHT &
+Reduce los datos capturados. &
+Solicita más resolución, si la cámara la admite. \\
+\bottomrule
+\end{longtable}
+
+\section{Manejo de errores y robustez}
+
+El código considera varias situaciones:
+
+\begin{itemize}
+  \item intenta un backend alternativo si DirectShow no abre;
+  \item verifica por separado que la cámara se haya abierto y que entregue
+  fotogramas;
+  \item usa \texttt{try/finally} para liberar el dispositivo;
+  \item acepta mayúsculas y minúsculas para las teclas;
+  \item devuelve \texttt{None} cuando el usuario sale sin capturar;
+  \item maneja una tabla vacía sin asumir que hubo detecciones;
+  \item recupera evidencias con \texttt{globals().get} para que la verificación
+  no falle si falta una variable.
+\end{itemize}
+
+Los mensajes de solución de problemas del notebook orientan sobre permisos,
+aplicaciones que ocupan la cámara, iluminación, índice de cámara, velocidad y
+reinicio del kernel.
+
+\section{Limitaciones y mejoras recomendadas}
+
+\subsection{Limitaciones actuales}
+
+\begin{enumerate}
+  \item \textbf{Las evidencias no se exportan como archivos.} Permanecen en
+  memoria y en las salidas del notebook; es necesario guardar el notebook para
+  conservarlas.
+  \item \textbf{La validación final solo cuenta cajas.} No comprueba que la
+  primera escena contenga realmente una persona ni que la segunda corresponda
+  al objeto solicitado.
+  \item \textbf{Las clases aparecen en inglés.} Son los nombres originales de
+  COCO proporcionados por el modelo.
+  \item \textbf{Solo se usa la primera GPU.} El valor 0 no contempla selección
+  entre varias GPU.
+  \item \textbf{NumPy se importa pero no se referencia directamente.} Las
+  imágenes sí son arreglos NumPy, pero el alias \texttt{np} podría eliminarse
+  sin cambiar el comportamiento actual.
+  \item \textbf{La interfaz requiere escritorio local.}
+  \texttt{cv2.imshow} no es adecuada para un servidor sin pantalla o un
+  notebook remoto.
+\end{enumerate}
+
+\subsection{Mejoras posibles}
+
+\begin{itemize}
+  \item Guardar automáticamente cada imagen con
+  \texttt{cv2.imwrite} y exportar la tabla a CSV.
+  \item Validar clases específicas, por ejemplo exigir
+  \texttt{"person"} en la primera tabla.
+  \item Traducir los nombres mediante un diccionario español.
+  \item Calcular fotogramas por segundo para medir rendimiento.
+  \item Permitir seleccionar resolución, dispositivo y umbral desde controles
+  del notebook.
+  \item Agregar fecha y hora a cada evidencia.
+  \item Separar la lógica de inferencia de la interfaz para facilitar pruebas
+  automáticas.
+\end{itemize}
+
+\section{Cómo ejecutar correctamente el notebook}
+
+\begin{enumerate}
+  \item Abrir \archivo{NombreApellido_DeteccionObjetos.ipynb} en Jupyter,
+  JupyterLab o VS Code.
+  \item Ejecutar la instalación una vez y reiniciar el kernel.
+  \item Ejecutar la celda de importaciones y confirmar que el modelo se cargó.
+  \item Ejecutar la celda que define las tres funciones.
+  \item Ejecutar cada prueba por separado, dar foco a la ventana y presionar
+  \textbf{C} cuando la detección sea visible.
+  \item Comprobar que la imagen y la tabla aparecen debajo de cada celda.
+  \item Ejecutar la verificación final.
+  \item Guardar el notebook con todas sus salidas.
+  \item Antes de entregar, sustituir \texttt{NombreApellido} en el archivo y
+  en el encabezado por los datos reales del estudiante.
+\end{enumerate}
+
+\section{Resumen conceptual}
+
+El programa sigue una separación de responsabilidades clara:
+
+\begin{itemize}
+  \item \texttt{abrir\_camara} se ocupa del dispositivo físico;
+  \item \texttt{construir\_tabla} transforma resultados del modelo en datos
+  comprensibles;
+  \item \texttt{detectar\_en\_tiempo\_real} controla el ciclo completo y la
+  interacción;
+  \item las tres celdas de prueba reutilizan esa lógica;
+  \item la última celda comprueba que las evidencias mínimas existen.
+\end{itemize}
+
+La secuencia esencial puede resumirse así:
+
+\[
+\text{capturar imagen}
+\rightarrow
+\text{inferir con YOLO}
+\rightarrow
+\text{dibujar detecciones}
+\rightarrow
+\text{mostrar}
+\rightarrow
+\text{capturar evidencia}
+\]
+
+El resultado es una aplicación educativa, local y reutilizable que conecta una
+cámara con un modelo de aprendizaje profundo y convierte sus predicciones en
+una salida visual y tabular.
+
+\section*{Glosario breve}
+\addcontentsline{toc}{section}{Glosario breve}
+
+\begin{description}
+  \item[Clase:] categoría predicha para un objeto.
+  \item[Confianza:] puntuación con la que el modelo respalda una detección.
+  \item[Fotograma:] una imagen individual de la secuencia de video.
+  \item[Inferencia:] uso de un modelo entrenado para producir predicciones.
+  \item[Peso:] parámetro aprendido por la red neuronal y almacenado en el
+  archivo \archivo{.pt}.
+  \item[Recuadro delimitador:] rectángulo que localiza un objeto.
+  \item[Umbral:] valor mínimo aceptado para conservar una predicción.
+\end{description}
+
+\end{document}
