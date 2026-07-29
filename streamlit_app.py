@@ -10,7 +10,6 @@ YOLO_CONFIG_DIR = BASE_DIR / ".yolo_config"
 YOLO_CONFIG_DIR.mkdir(exist_ok=True)
 os.environ.setdefault("YOLO_CONFIG_DIR", str(YOLO_CONFIG_DIR))
 
-import cv2
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -195,7 +194,7 @@ def detectar_imagen(
         verbose=False,
     )[0]
     anotada_bgr = resultado.plot(line_width=2, font_size=12)
-    anotada_rgb = cv2.cvtColor(anotada_bgr, cv2.COLOR_BGR2RGB)
+    anotada_rgb = anotada_bgr[:, :, ::-1].copy()
     tabla = construir_tabla(resultado, modelo.names)
     promedio = (
         float(resultado.boxes.conf.mean().item() * 100)
