@@ -20,7 +20,9 @@ from ultralytics import YOLO
 try:
     import av
     from streamlit_webrtc import webrtc_streamer
+    from webrtc_compat import instalar_guardia_reintento_aioice
 
+    instalar_guardia_reintento_aioice()
     WEBRTC_DISPONIBLE = True
 except ImportError:
     WEBRTC_DISPONIBLE = False

@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-streamlit==1.58.0
+streamlit==1.60.0
 streamlit-webrtc==0.76.2
 ultralytics-opencv-headless==8.4.103
 torch==2.11.0+cpu
